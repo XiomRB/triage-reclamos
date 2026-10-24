@@ -1,0 +1,6 @@
+outs:
+- md5: f4d08cf19f9af5df42179b8115d19aea.dir
+  size: 1211486
+  nfiles: 1
+  hash: md5
+  path: golden
