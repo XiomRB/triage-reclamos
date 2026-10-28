@@ -1,6 +1,7 @@
 import pandas as pd
+import pytest
 
-from triage.data.build_dataset import asignar_clase, limpiar, muestrear
+from triage.data.build_dataset import asignar_clase, leer_crudos, limpiar, muestrear
 
 LABEL_MAP = {
     "clases": {"tarjetas": ["Credit card"], "cobranza": ["Debt collection"]},
@@ -45,3 +46,36 @@ def test_muestrear_respeta_tope_y_es_determinista():
     m2 = muestrear(df, max_por_clase=10, seed=42)
     assert m1["clase"].value_counts().max() == 10
     assert m1.equals(m2)
+
+
+def crudo_cfpb(ids: list[str], fechas: list) -> pd.DataFrame:
+    return pd.DataFrame({"Complaint ID": ids, "Date received": fechas,
+                         "Product": ["Credit card"] * len(ids), "Sub-product": [None] * len(ids),
+                         "Issue": ["x"] * len(ids),
+                         "Consumer complaint narrative": [f"texto {i}" for i in ids]})
+
+
+def test_leer_crudos_une_csv_y_parquet_de_landing(tmp_path):
+    raw, landing = tmp_path / "raw", tmp_path / "landing"
+    raw.mkdir()
+    landing.mkdir()
+    crudo_cfpb(["1", "2"], ["2023-01-01", "2023-01-02"]).to_csv(raw / "a.csv", index=False)
+    crudo_cfpb(["3"], pd.to_datetime(["2023-12-01"])).to_parquet(landing / "b.parquet", index=False)
+
+    df = leer_crudos(str(raw), str(landing))
+
+    assert list(df.columns) == ["complaint_id", "fecha", "producto", "subproducto", "texto"]
+    assert list(df["complaint_id"]) == ["1", "2", "3"]
+    limpio = limpiar(df)
+    assert list(limpio["fecha"]) == list(pd.to_datetime(["2023-01-01", "2023-01-02", "2023-12-01"]))
+    assert limpio["subproducto"].isna().all()
+
+
+def test_leer_crudos_sin_carpeta_landing(tmp_path):
+    crudo_cfpb(["1"], ["2023-01-01"]).to_csv(tmp_path / "a.csv", index=False)
+    assert len(leer_crudos(str(tmp_path), str(tmp_path / "no_existe"))) == 1
+
+
+def test_leer_crudos_sin_archivos_falla(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        leer_crudos(str(tmp_path), str(tmp_path))
