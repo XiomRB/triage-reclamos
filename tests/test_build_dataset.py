@@ -71,6 +71,18 @@ def test_leer_crudos_une_csv_y_parquet_de_landing(tmp_path):
     assert limpio["subproducto"].isna().all()
 
 
+def test_leer_crudos_lee_parquet_en_particiones(tmp_path):
+    crudo_cfpb(["1"], ["2023-01-01"]).to_csv(tmp_path / "a.csv", index=False)
+    for i, dia in enumerate(["2024-01-01", "2024-01-02"], start=2):
+        particion = tmp_path / "landing" / f"fecha={dia}"
+        particion.mkdir(parents=True)
+        crudo_cfpb([str(i)], pd.to_datetime([dia])).to_parquet(particion / "part.parquet", index=False)
+
+    df = leer_crudos(str(tmp_path), str(tmp_path / "landing"))
+
+    assert list(df["complaint_id"]) == ["1", "2", "3"]
+
+
 def test_leer_crudos_sin_carpeta_landing(tmp_path):
     crudo_cfpb(["1"], ["2023-01-01"]).to_csv(tmp_path / "a.csv", index=False)
     assert len(leer_crudos(str(tmp_path), str(tmp_path / "no_existe"))) == 1

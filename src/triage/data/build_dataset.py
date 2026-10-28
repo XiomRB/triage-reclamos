@@ -69,9 +69,9 @@ def leer_parquet(ruta: Path) -> pd.DataFrame:
 
 
 def leer_crudos(raw_dir: str, landing_dir: str | None = None) -> pd.DataFrame:
-    """Une los .csv de raw_dir y los .parquet de landing_dir (opcional)."""
+    """Une los .csv de raw_dir y los .parquet de landing_dir (opcional, incluye subcarpetas)."""
     csvs = sorted(Path(raw_dir).glob("*.csv"))
-    parquets = sorted(Path(landing_dir).glob("*.parquet")) if landing_dir else []
+    parquets = sorted(Path(landing_dir).rglob("*.parquet")) if landing_dir else []
     if not csvs and not parquets:
         raise FileNotFoundError(f"No hay archivos .csv en {raw_dir} ni .parquet en {landing_dir}")
     partes = [pd.read_csv(a, dtype=str, usecols=lambda c: c in COLUMNAS) for a in csvs]
